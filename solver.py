@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import time
 
 def matrix_operations(start, dim):
     """
@@ -47,7 +48,7 @@ def matrix_operations(start, dim):
     #Returns this matrix as an np.array
     return np.array(matrix_op)
 
-def solve(board: list[list[int]], m: int) -> list[tuple[int, int, int]]:
+def solve(board, m, matrix_opa = [], matrix_opb = [], prime=False, ):
     """
     Returns a list of a solution of moves that solves the arrow puzzle.
     
@@ -80,26 +81,37 @@ def solve(board: list[list[int]], m: int) -> list[tuple[int, int, int]]:
         startb = 1
         for line in range(len(board)):
                 board[line][0] = 0
-    
-    #Creating inverse row operation matrices for a and b dimensions
-    matrix_opa = matrix_operations(starta, a)
-    matrix_opb = matrix_operations(startb, b)
+
+    #Creating inverse row operation matrices for a and b dimensions to prime solver
+    if prime:
+        start = time.time()
+        matrix_opa = matrix_operations(starta, a)
+        matrix_opb = matrix_operations(startb, b)
+        end = time.time()
+        print(end - start, "priming")
+        return matrix_opa,matrix_opb
     
     #Creating a new board with the number of clicks per square
     new_board = (np.array([[m] * b] * a) - np.array(board)) % m
     
-    #Setting up the vectors by performing the inverse row operations in dimention a
-    vectors = np.dot(matrix_opa, new_board) % m
     
-    #Solving the matrix by performing the inverse row operations in dimention b
-    solutions = np.dot(vectors, matrix_opb) % m
     
-    #Deconstructing the solutions into a list of tuples of coordinates and clicks
-    moves = []
-    for i in range(len(solutions)):
-        for l in range(len(solutions[0])):
-            num = int(solutions[i][l])
-            if num != 0:
-                moves.append((i, l, num))
+    if not prime:
+        start = time.time()
+        #Setting up the vectors by performing the inverse row operations in dimention a
+        vectors = np.dot(matrix_opa, new_board) % m
     
-    return moves
+        #Solving the matrix by performing the inverse row operations in dimention b
+        solutions = np.dot(vectors, matrix_opb) % m
+        end = time.time()
+        print(end - start, "multiplying")
+
+        #Deconstructing the solutions into a list of tuples of coordinates and clicks
+        moves = []
+        for i in range(len(solutions)):
+            for l in range(len(solutions[0])):
+                num = int(solutions[i][l])
+                if num != 0:
+                    moves.append((i, l, num))
+        
+        return moves

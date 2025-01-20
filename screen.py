@@ -8,9 +8,17 @@ import random
 
 pygame.font.init()
 
+print("Welcome to the arrow puzzle game! Get all the arrows pointing down to win!\n"
+"By clicking an arrow, the arrow you clicked, as well as those surrounding it, will rotate. \n"
+"To play, it is recommended to create a board smaller than 10x10 with less than 6 angles \n"
+"To test out the limits of the solver, it is recommended to keep within a 350x350 board \n"
+"(Unless you want to see a fully green screen) \n"
+"Good luck!")
+
 #Asking user for data on board
+print("Give dimensions of board:")
 while True:
-    dim = [input("Give dimensions of board; width:  "), input("height: ")]
+    dim = [input("width: "), input("height: ")]
     if dim[0].isdigit() and dim[1].isdigit:
         dim[0], dim[1] = int(dim[0]), int(dim[1])
         break
@@ -43,20 +51,22 @@ numbers = False
 arrow_vertices = np.array([(-5, -50), (5, -50), (5,0), (30,0), (0,50), (-30, 0), (-5,0)]) * (box_size/100) * 0.9
 arrow_list = []
 
+#Creating the rotated arrow vertices, important for large boards
+rotated_arrow_vertices = [arrow_vertices]
+rotation_matrix = np.array([[math.cos(angle_rot), math.sin(angle_rot)],
+                          [-math.sin(angle_rot), math.cos(angle_rot)]])
+for angle in range(rot):
+    rotated_arrow_vertices.append(np.dot(rotated_arrow_vertices[-1], rotation_matrix))
+
 #Making screen
 screen = pygame.display.set_mode((box_size * dim[0], box_size*dim[1]))
 
 #Generates the arrow poygons
 def generate_arrows(pos, angle):
-    #Setting the angle in radians instead of frations of one rotation
-    angle = angle * angle_rot
-    #Creating the rotation matrix
-    rotation_matrix = np.array([[math.cos(angle), math.sin(angle)],[-math.sin(angle), math.cos(angle)]])
-    
     #Rotating the vertices of the arrow
-    rotated_vertices = np.dot(arrow_vertices, rotation_matrix)
+    rotated_vertices = rotated_arrow_vertices[angle]
     #Drawing the arrow
-    pygame.draw.polygon(screen, arrow_colour, rotated_vertices + np.array(pos), 0)
+    pygame.draw.polygon(screen, arrow_colour, rotated_vertices + np.array(pos))
 
 #Rotates the arrows
 def rotate(arrow_index, render = False, display = False, rotations = 1, multiple = False, rect_list = []):
@@ -106,43 +116,54 @@ def generate_board(empty = False):
 
     return board
 
+#Primes the solver
+board = generate_board()
+matrix_opa, matrix_opb = solver.solve(board, rot, prime=True)
+
 #Solves the board quickly for large boards and finding solvable boards
 def quick_solve(solution, reverse = False, display = False):
     mult, add = 1, 0
     rect_list = []
 
-    skip = int((int(len(solution)/10000) + 1) * 1.5)
-    i = 0
-    frames = 0
+    skip_rot = int(len(solution) * rot/2 /30000)
+    skip_frame = int((len(solution)/10000) ** 3)
+
+    print(skip_frame, "skip_frame")
+    print(skip_rot, "skip_rot")
+    frame = 0
 
     if reverse:
         mult = -1
         add = rot
 
     for move in solution:
-        if frames < 10000:
-            if display and skip > 1:
-                
-                if i % skip == 0:
-                    rotate([move[0], move[1]], render=True, display = True, rotations=add + mult * move[2], multiple=False, rect_list=rect_list)
-                    rect_list = []
-                    i = 0
-                    frames += 1
+        if display:
+            if skip_rot > 1:
+                if skip_frame > 1:
+                    if frame % skip_frame == 0:
+                        rotate([move[0], move[1]], render=True, display = True, rotations=move[2], multiple=False, rect_list=rect_list)
+                        rect_list = []
+                        frame = 0
+                    else:
+                        rect_list = rotate([move[0], move[1]], render=True, display = False, rotations=move[2], multiple=True, rect_list=rect_list)
+                    frame += 1
                 else:
-                    rect_list = rotate([move[0], move[1]], render=True, display = False, rotations=add + mult * move[2], multiple=True, rect_list=rect_list)
-                i += 1
+                    rotate([move[0], move[1]], render=True, display=True, rotations=move[2], rect_list=rect_list)
+                    rect_list = []
             else:
-                rotate([move[0], move[1]], render=False, display=False, rotations=add + mult * move[2])
+                rotate([move[0], move[1]], render=True, display=True, rotations=min(skip_rot,move[2]), rect_list=rect_list)
+                rect_list = []
         else:
-            print(frames)
-            break
+            rotate([move[0], move[1]], render=False, display=False, rotations=add + mult * move[2], rect_list=rect_list)
+            rect_list = []
 
 #If the board is of certain dimentions, it is not necessarily solvable
 if (dim[0] - 5) % 3 == 0 or (dim[1] - 5) % 3 == 0:
-    board = generate_board()
-    solution = solver.solve(board, rot)
+    start = time.time()
+    solution = solver.solve(board, rot, matrix_opa=matrix_opa, matrix_opb=matrix_opb)
+    print(time.time() - start, "solving")
     #Setting solving to true to avoid recalculating the solution
-    solving = True
+    solved = True
 
     quick_solve(solution)
 
@@ -176,7 +197,7 @@ def update_screen():
 #Setting intital values
 running = True
 win = False
-solving = False
+solved = False
 
 #Stops the program if running is False
 while running:
@@ -199,10 +220,10 @@ while running:
             #Making sure the arrows are within the bounds of the screen
             if mouse[0] < box_size * dim[0] and mouse[1] < box_size * dim[1]:
                 arrow_index = [math.floor(mouse[1]/box_size), math.floor(mouse[0]/box_size)]
-                rotate(arrow_index, render=True, display=True)
+                rotate(arrow_index, render=True, display=True, rect_list=[])
 
-                solving = False
-                #Evealuating whether 
+                solved = False
+                #Evaluating win
                 win = True
                 for line in arrow_list:
                     for arrow in line:
@@ -217,11 +238,11 @@ while running:
             #If key pressed is "s", solves the board
             if event.key == pygame.K_s:
                 board = generate_board()
-                solution = solver.solve(board, rot)
+                solution = solver.solve(board, rot, matrix_opa=matrix_opa, matrix_opb=matrix_opb)
                 random.shuffle(solution)
-                solving = True
+                solved = True
 
-                #Setting the start time of the soling process
+                #Setting the start time of the solving process
                 start = time.time()
 
                 #Setting a delay based off the number of moves to make it visible at small scales
@@ -229,7 +250,7 @@ while running:
                 delay = (4 - moves * 0.001 * rot)/(moves * rot) * 2
 
                 #Displays the solution
-                if moves * rot < 3000:
+                if moves * rot < 100:
                     
                     for move in solution:
                         for step in range(move[2]):
