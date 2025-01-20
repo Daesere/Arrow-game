@@ -32,8 +32,8 @@ while True:
     print("Please enter a number")
 angle_rot = 2 * math.pi/rot
 
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 1000
+SCREEN_WIDTH = 900
+SCREEN_HEIGHT = 900
 
 #Setting colours
 screen_colour = (10,10,10)
@@ -42,13 +42,15 @@ arrow_colour = (36, 204, 68)
 #Setting the box size
 box_size = int(min(SCREEN_WIDTH/dim[0], SCREEN_HEIGHT/dim[1]))
 box_size = min(100, box_size)
+ARROW_PROPORTION = 0.9
+FONT_PROPORTION = 0.8
 #Setting text font, size and position correction based off box size
-font = pygame.font.SysFont('Consolas', int(box_size * 0.8))
+font = pygame.font.SysFont('Consolas', int(box_size * FONT_PROPORTION))
 correction = np.array([int(0.4 * box_size), int(0.4 * box_size)])
 #Setting the inital state of the game to display arrows and not numbers
 numbers = False
 #Creating the arrows
-arrow_vertices = np.array([(-5, -50), (5, -50), (5,0), (30,0), (0,50), (-30, 0), (-5,0)]) * (box_size/100) * 0.9
+arrow_vertices = np.array([(-5, -50), (5, -50), (5,0), (30,0), (0,50), (-30, 0), (-5,0)]) * (box_size/100) * ARROW_PROPORTION
 arrow_list = []
 
 #Creating the rotated arrow vertices, important for large boards
@@ -94,7 +96,8 @@ def rotate(arrow_index, render = False, display = False, rotations = 1, multiple
 
 #Generates text based off position and rotation value
 def generate_text(pos, num):
-    pos = pos - correction + [(0.2 * box_size if num < 10 else 0),0]
+    center = (1 - FONT_PROPORTION/2)/2 * box_size
+    pos = pos - correction + [(center if num < 10 else 0),0]
     text = font.render(str(num), True, arrow_colour)
 
     screen.blit(text, pos)
@@ -122,39 +125,31 @@ matrix_opa, matrix_opb = solver.solve(board, rot, prime=True)
 
 #Solves the board quickly for large boards and finding solvable boards
 def quick_solve(solution, reverse = False, display = False):
-    mult, add = 1, 0
     rect_list = []
 
-    skip_rot = int(len(solution) * rot/2 /30000)
     skip_frame = int((len(solution)/10000) ** 3)
 
     print(skip_frame, "skip_frame")
-    print(skip_rot, "skip_rot")
     frame = 0
 
-    if reverse:
-        mult = -1
-        add = rot
-
     for move in solution:
+        if reverse:
+            rotate([move[0], move[1]], render=False, display=False, rotations=move[2], rect_list=rect_list)
+            rect_list = []
         if display:
-            if skip_rot > 1:
-                if skip_frame > 1:
-                    if frame % skip_frame == 0:
-                        rotate([move[0], move[1]], render=True, display = True, rotations=move[2], multiple=False, rect_list=rect_list)
-                        rect_list = []
-                        frame = 0
-                    else:
-                        rect_list = rotate([move[0], move[1]], render=True, display = False, rotations=move[2], multiple=True, rect_list=rect_list)
-                    frame += 1
-                else:
-                    rotate([move[0], move[1]], render=True, display=True, rotations=move[2], rect_list=rect_list)
+            if skip_frame > 1:
+                if frame % skip_frame == 0:
+                    rotate([move[0], move[1]], render=True, display = True, rotations=move[2], multiple=False, rect_list=rect_list)
                     rect_list = []
+                    frame = 0
+                else:
+                    rect_list = rotate([move[0], move[1]], render=True, display = False, rotations=move[2], multiple=True, rect_list=rect_list)
+                frame += 1
             else:
-                rotate([move[0], move[1]], render=True, display=True, rotations=min(skip_rot,move[2]), rect_list=rect_list)
+                rotate([move[0], move[1]], render=True, display=True, rotations=move[2], rect_list=rect_list)
                 rect_list = []
         else:
-            rotate([move[0], move[1]], render=False, display=False, rotations=add + mult * move[2], rect_list=rect_list)
+            rotate([move[0], move[1]], render=False, display=False, rotations=move[2], rect_list=rect_list)
             rect_list = []
 
 #If the board is of certain dimentions, it is not necessarily solvable
@@ -247,19 +242,28 @@ while running:
 
                 #Setting a delay based off the number of moves to make it visible at small scales
                 moves = len(solution)
-                delay = (4 - moves * 0.001 * rot)/(moves * rot) * 2
-
+                delay = (4 - moves * 0.001 * rot/2)/(moves * rot) * 2
+                print(delay, "delay")
+                skip_rot = int((moves * rot/2)/30000)
+                print(skip_rot, "skip_rot")
                 #Displays the solution
-                if moves * rot < 100:
-                    
+                if skip_rot < 1:
                     for move in solution:
                         for step in range(move[2]):
                             if delay > 0:
                                 time.sleep(delay)
-                            rotate([move[0], move[1]], render=True, display=True)
-                            
+                            rect_list = []
+                            rotate([move[0], move[1]], render=True, display=True, rect_list=rect_list)
                 else:
-                    quick_solve(solution, reverse=False, display=True)
+                    if skip_rot < rot:
+                        for move in solution:
+                            times = move[2]
+                            while times != 0:
+                                rect_list = []
+                                rotate([move[0], move[1]], render=True, display=True, rotations=min(skip_rot, times), rect_list=rect_list)
+                                times = max(times - skip_rot, 0)
+                    else:
+                        quick_solve(solution, reverse=False, display=True)
                     
                 end = time.time()
                 print((end - start)/moves)
