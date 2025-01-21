@@ -60,11 +60,11 @@ def solve(board, m, matrix_opa = [], matrix_opb = [], prime=False, ):
     #Dealing with the edge cases where two square clicks have same effect
     if a < 3 or b < 3:
         if a < 3:
-            board = [board[0]]
+            board = [board[1]]
             a = 1
         if b < 3:
             for i in range(len(board)):
-                board[i] = [board[i][0]]
+                board[i] = [board[i][1]]
             b = 1
     #If the board becomes a 1x1, returns the solution
         if a == 1 and b == 1:
@@ -84,11 +84,8 @@ def solve(board, m, matrix_opa = [], matrix_opb = [], prime=False, ):
 
     #Creating inverse row operation matrices for a and b dimensions to prime solver
     if prime:
-        start = time.time()
         matrix_opa = matrix_operations(starta, a)
         matrix_opb = matrix_operations(startb, b)
-        end = time.time()
-        print(end - start, "priming")
         return matrix_opa,matrix_opb
     
     #Creating a new board with the number of clicks per square
@@ -97,14 +94,11 @@ def solve(board, m, matrix_opa = [], matrix_opb = [], prime=False, ):
     
     
     if not prime:
-        start = time.time()
         #Setting up the vectors by performing the inverse row operations in dimention a
         vectors = np.dot(matrix_opa, new_board) % m
     
         #Solving the matrix by performing the inverse row operations in dimention b
         solutions = np.dot(vectors, matrix_opb) % m
-        end = time.time()
-        print(end - start, "multiplying")
 
         #Deconstructing the solutions into a list of tuples of coordinates and clicks
         moves = []
