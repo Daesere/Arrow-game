@@ -13,6 +13,10 @@ print("Welcome to the arrow puzzle game! Get all the arrows pointing down to win
 "To play, it is recommended to create a board smaller than 10x10 with less than 6 angles \n"
 "To test out the limits of the solver, it is recommended to keep within a 250x250 board \n"
 "(Unless you want to see a fully green screen) \n"
+"Press left click to rotate arrows \n"
+"Press s to solve \n"
+"Press r to reset to a new board"
+"Press space to switch to numbers"
 "Good luck!")
 
 #Asking user for data on board
@@ -102,9 +106,6 @@ def rotate(arrow_index, render = False, display = False, rotations = 1, multiple
     
     if display:
         pygame.display.update(rect_list)
-    
-    if multiple:
-        return rect_list
 
 #Generates text based off position and rotation value
 def generate_text(pos, num):
@@ -139,7 +140,7 @@ def quick_solve(solution, reverse = False, display = False):
                     frame = 0
                 else:
                     #Create a list to display when frame % skip_fram == 0
-                    rect_list = rotate([move[0], move[1]], render=True, display = False, rotations=move[2], multiple=True, rect_list=rect_list)
+                    rotate([move[0], move[1]], render=True, display = False, rotations=move[2], multiple=True, rect_list=rect_list)
                 frame += 1
             #If skip_frame <= 1, display every frame
             else:
